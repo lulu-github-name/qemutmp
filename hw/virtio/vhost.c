@@ -743,19 +743,33 @@ static void vhost_iommu_region_del(MemoryListener *listener,
         }
     }
 }
-
+static void vhost_virtqueue_get_addr(struct vhost_dev *dev,
+                                    struct vhost_vring_addr *addr,
+                                    struct vhost_virtqueue *vq)
+{
+    /*vDPA need to use the IOA here to set to hardware*/
+    if (dev->vhost_ops->backend_type == VHOST_BACKEND_TYPE_VDPA) {
+        addr->desc_user_addr = (uint64_t)(unsigned long)vq->desc_phys;
+        addr->avail_user_addr = (uint64_t)(unsigned long)vq->avail_phys;
+        addr->used_user_addr = (uint64_t)(unsigned long)vq->used_phys;
+    } else {
+        addr->desc_user_addr = (uint64_t)(unsigned long)vq->desc;
+        addr->avail_user_addr = (uint64_t)(unsigned long)vq->avail;
+        addr->used_user_addr = (uint64_t)(unsigned long)vq->used;
+    }
+}
 static int vhost_virtqueue_set_addr(struct vhost_dev *dev,
                                     struct vhost_virtqueue *vq,
                                     unsigned idx, bool enable_log)
 {
-    struct vhost_vring_addr addr = {
-        .index = idx,
-        .desc_user_addr = (uint64_t)(unsigned long)vq->desc,
-        .avail_user_addr = (uint64_t)(unsigned long)vq->avail,
-        .used_user_addr = (uint64_t)(unsigned long)vq->used,
-        .log_guest_addr = vq->used_phys,
-        .flags = enable_log ? (1 << VHOST_VRING_F_LOG) : 0,
-    };
+    struct vhost_vring_addr addr;
+    memset(&addr, 0, sizeof(struct vhost_vring_addr));
+
+    vhost_virtqueue_get_addr(dev, &addr, vq);
+    addr.index = idx;
+    addr .log_guest_addr = vq->used_phys;
+    addr .flags = enable_log ? (1 << VHOST_VRING_F_LOG) : 0;
+
     int r = dev->vhost_ops->vhost_set_vring_addr(dev, &addr);
     if (r < 0) {
         VHOST_OPS_DEBUG("vhost_set_vring_addr failed");
@@ -1506,6 +1520,14 @@ int vhost_dev_set_config(struct vhost_dev *hdev, const uint8_t *data,
     return -1;
 }
 
+int vhost_dev_get_device_id(struct vhost_dev *hdev, uint32_t *device_id)
+{
+    assert(hdev->vhost_ops);
+    if (hdev->vhost_ops->vhost_get_device_id) {
+        return hdev->vhost_ops->vhost_get_device_id(hdev, device_id);
+    }
+    return -1;
+}
 void vhost_dev_set_config_notifier(struct vhost_dev *hdev,
                                    const VhostDevConfigOps *ops)
 {
@@ -1661,7 +1683,13 @@ int vhost_dev_start(struct vhost_dev *hdev, VirtIODevice *vdev)
         }
     }
 
-    if (vhost_dev_has_iommu(hdev)) {
+    r = vhost_set_state(hdev, true);
+    if (r) {
+        goto fail_log;
+    }
+
+    if (vhost_dev_has_iommu(hdev) &&
+        hdev->vhost_ops->vhost_set_iotlb_callback) {
         hdev->vhost_ops->vhost_set_iotlb_callback(hdev, true);
 
         /* Update used ring information for IOTLB to work correctly,
@@ -1697,6 +1725,8 @@ void vhost_dev_stop(struct vhost_dev *hdev, VirtIODevice *vdev)
     /* should only be called after backend is connected */
     assert(hdev->vhost_ops);
 
+    vhost_set_state(hdev, false);
+
     for (i = 0; i < hdev->nvqs; ++i) {
         vhost_virtqueue_stop(hdev,
                              vdev,
@@ -1705,7 +1735,9 @@ void vhost_dev_stop(struct vhost_dev *hdev, VirtIODevice *vdev)
     }
 
     if (vhost_dev_has_iommu(hdev)) {
-        hdev->vhost_ops->vhost_set_iotlb_callback(hdev, false);
+        if (hdev->vhost_ops->vhost_set_iotlb_callback) {
+            hdev->vhost_ops->vhost_set_iotlb_callback(hdev, false);
+        }
         memory_listener_unregister(&hdev->iommu_listener);
     }
     vhost_log_put(hdev, true);
@@ -1721,4 +1753,13 @@ int vhost_net_set_backend(struct vhost_dev *hdev,
     }
 
     return -1;
+}
+
+int vhost_set_state(struct vhost_dev *hdev, bool started)
+{
+    if (hdev->vhost_ops->vhost_set_state) {
+        return hdev->vhost_ops->vhost_set_state(hdev, started);
+    }
+
+    return 0;
 }
