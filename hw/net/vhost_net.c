@@ -86,31 +86,7 @@ static const int user_feature_bits[] = {
 
     VHOST_INVALID_FEATURE_BIT
 };
-
-static const int vdpa_feature_bits[] = {
-    VIRTIO_F_NOTIFY_ON_EMPTY,
-    VIRTIO_RING_F_INDIRECT_DESC,
-    VIRTIO_RING_F_EVENT_IDX,
-    VIRTIO_F_ANY_LAYOUT,
-    VIRTIO_F_VERSION_1,
-    VIRTIO_NET_F_CSUM,
-    VIRTIO_NET_F_GUEST_CSUM,
-    VIRTIO_NET_F_GSO,
-    VIRTIO_NET_F_GUEST_TSO4,
-    VIRTIO_NET_F_GUEST_TSO6,
-    VIRTIO_NET_F_GUEST_ECN,
-    VIRTIO_NET_F_GUEST_UFO,
-    VIRTIO_NET_F_HOST_TSO4,
-    VIRTIO_NET_F_HOST_TSO6,
-    VIRTIO_NET_F_HOST_ECN,
-    VIRTIO_NET_F_HOST_UFO,
-    VIRTIO_NET_F_MRG_RXBUF,
-    VIRTIO_NET_F_MTU,
-    VIRTIO_F_IOMMU_PLATFORM,
-    VIRTIO_F_RING_PACKED,
-    VIRTIO_NET_F_GUEST_ANNOUNCE,
-    VHOST_INVALID_FEATURE_BIT
-};
+extern int vdpa_feature_bits[];
 static const int *vhost_net_get_feature_bits(struct vhost_net *net)
 {
     const int *feature_bits = 0;

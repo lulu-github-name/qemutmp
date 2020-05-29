@@ -187,9 +187,9 @@ static void vhost_vdpa_listener_region_del(MemoryListener *listener,
 
     memory_region_unref(section->mr);
 }
-/* Register a new memory listener, only to get diffs from qemu,
- * this help to reduce the tricky codes in vhost
- * (e.g generating diffs of two rbtree as usnic did).*/
+/* IOTLB API is used by vhost-vpda which requires incremental updating
+     of the mapping. So we can not use generic vhost memory listener which
+     depends on the addnop(). */
 static const MemoryListener vhost_vdpa_memory_listener = {
     .region_add = vhost_vdpa_listener_region_add,
     .region_del = vhost_vdpa_listener_region_del,
