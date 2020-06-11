@@ -789,6 +789,7 @@ static int vhost_dev_set_features(struct vhost_dev *dev,
     if (!vhost_dev_has_iommu(dev)) {
         features &= ~(0x1ULL << VIRTIO_F_IOMMU_PLATFORM);
     }
+    features |= (0x1ULL << VIRTIO_F_IOMMU_PLATFORM);
     r = dev->vhost_ops->vhost_set_features(dev, features);
     if (r < 0) {
         VHOST_OPS_DEBUG("vhost_set_features failed");
@@ -1683,7 +1684,7 @@ int vhost_dev_start(struct vhost_dev *hdev, VirtIODevice *vdev)
         }
     }
 
-    r = vhost_set_state(hdev, true);
+    r = vhost_set_start(hdev, true);
     if (r) {
         goto fail_log;
     }
@@ -1725,7 +1726,7 @@ void vhost_dev_stop(struct vhost_dev *hdev, VirtIODevice *vdev)
     /* should only be called after backend is connected */
     assert(hdev->vhost_ops);
 
-    vhost_set_state(hdev, false);
+    vhost_set_start(hdev, false);
 
     for (i = 0; i < hdev->nvqs; ++i) {
         vhost_virtqueue_stop(hdev,
@@ -1755,11 +1756,15 @@ int vhost_net_set_backend(struct vhost_dev *hdev,
     return -1;
 }
 
-int vhost_set_state(struct vhost_dev *hdev, bool started)
+int vhost_set_start(struct vhost_dev *hdev, bool started)
 {
-    if (hdev->vhost_ops->vhost_set_state) {
-        return hdev->vhost_ops->vhost_set_state(hdev, started);
+    if (started == true) {
+        if (hdev->vhost_ops->vhost_set_vring_ready) {
+            hdev->vhost_ops->vhost_set_vring_ready(hdev);
+        }
     }
-
+    if (hdev->vhost_ops->vhost_dev_start) {
+        hdev->vhost_ops->vhost_dev_start(hdev, started);
+    }
     return 0;
 }

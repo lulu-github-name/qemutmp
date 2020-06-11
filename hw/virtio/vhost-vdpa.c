@@ -380,7 +380,7 @@ static int vhost_vdpa_get_config(struct vhost_dev *dev, uint8_t *config,
     return ret;
  }
 
-static int vhost_vdpa_set_state(struct vhost_dev *dev, bool started)
+static int vhost_vdpa_set_start(struct vhost_dev *dev, bool started)
 {
     struct vhost_vdpa *v = dev->opaque;
 
@@ -430,6 +430,6 @@ const VhostOps vdpa_ops = {
         .vhost_net_set_mtu = NULL,
         .vhost_set_iotlb_callback = NULL,
         .vhost_send_device_iotlb_msg = NULL,
-        .vhost_set_state = vhost_vdpa_set_state,
+        .vhost_dev_start = vhost_vdpa_set_start,
         .vhost_get_device_id = vhost_vdpa_get_device_id,
 };

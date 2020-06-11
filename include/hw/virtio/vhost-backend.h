@@ -114,7 +114,7 @@ typedef int (*vhost_get_inflight_fd_op)(struct vhost_dev *dev,
 typedef int (*vhost_set_inflight_fd_op)(struct vhost_dev *dev,
                                         struct vhost_inflight *inflight);
 
-typedef int (*vhost_set_state_op)(struct vhost_dev *dev, bool started);
+typedef int (*vhost_dev_start_op)(struct vhost_dev *dev, bool started);
 typedef int (*vhost_get_device_id_op)(struct vhost_dev *dev, uint32_t *dev_id);
 typedef struct VhostOps {
     VhostBackendType backend_type;
@@ -157,7 +157,7 @@ typedef struct VhostOps {
     vhost_backend_mem_section_filter_op vhost_backend_mem_section_filter;
     vhost_get_inflight_fd_op vhost_get_inflight_fd;
     vhost_set_inflight_fd_op vhost_set_inflight_fd;
-    vhost_set_state_op vhost_set_state;
+    vhost_dev_start_op vhost_dev_start;
     vhost_get_device_id_op vhost_get_device_id;
 } VhostOps;
 
