@@ -349,34 +349,37 @@ static int vhost_vdpa_set_config(struct vhost_dev *dev, const uint8_t *data,
                                    uint32_t offset, uint32_t size,
                                    uint32_t flags)
 {
-    struct vhost_vdpa_config config;
+    struct vhost_vdpa_config *config;
     int ret;
-    if ((size > VHOST_VDPA_MAX_CONFIG_SIZE) || (data == NULL)) {
+    unsigned long config_size = offsetof(struct vhost_vdpa_config, buf);
+    config = g_malloc(size + config_size);
+    if (config == NULL) {
         return -1;
     }
-    memset(&config, 0, sizeof(struct vhost_vdpa_config));
-    config.off = 0;
-    config.len = size;
-    memcpy(&config.buf, data, size);
-    ret = vhost_vdpa_call(dev, VHOST_VDPA_SET_CONFIG, &config);
+    config->off = offset;
+    config->len = size;
+    memcpy(config->buf, data, size);
+    ret = vhost_vdpa_call(dev, VHOST_VDPA_SET_CONFIG, config);
+    g_free(config);
     return ret;
 }
 
 static int vhost_vdpa_get_config(struct vhost_dev *dev, uint8_t *config,
                                    uint32_t config_len)
 {
-    struct vhost_vdpa_config v_config;
+    struct vhost_vdpa_config *v_config;
+    unsigned long config_size = offsetof(struct vhost_vdpa_config, buf);
     int ret;
 
-    memset(&v_config, 0, sizeof(struct vhost_vdpa_config));
-    if (config == NULL) {
+    v_config = g_malloc(config_len + config_size);
+    if (v_config == NULL) {
         return -1;
     }
-    ret = vhost_vdpa_call(dev, VHOST_VDPA_GET_CONFIG, &v_config);
-    if ((v_config.len > config_len) || (v_config.len == 0)) {
-        return -EINVAL;
-    }
-    memcpy(config, &v_config.buf, config_len);
+    v_config->len = config_len;
+    v_config->off = 0;
+    ret = vhost_vdpa_call(dev, VHOST_VDPA_GET_CONFIG, v_config);
+    memcpy(config, v_config->buf, config_len);
+    g_free(v_config);
     return ret;
  }
 

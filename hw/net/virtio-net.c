@@ -42,6 +42,7 @@
 #include "trace.h"
 #include "monitor/qdev.h"
 #include "hw/pci/pci.h"
+#include "hw/virtio/vhost.h"
 
 #define VIRTIO_NET_VM_VERSION    11
 
@@ -131,6 +132,8 @@ static void virtio_net_get_config(VirtIODevice *vdev, uint8_t *config)
 {
     VirtIONet *n = VIRTIO_NET(vdev);
     struct virtio_net_config netcfg;
+    int ret = 0;
+    memset(&netcfg, 0 , sizeof(struct virtio_net_config));
 
     virtio_stw_p(vdev, &netcfg.status, n->status);
     virtio_stw_p(vdev, &netcfg.max_virtqueue_pairs, n->max_queues);
@@ -139,13 +142,19 @@ static void virtio_net_get_config(VirtIODevice *vdev, uint8_t *config)
     virtio_stl_p(vdev, &netcfg.speed, n->net_conf.speed);
     netcfg.duplex = n->net_conf.duplex;
     memcpy(config, &netcfg, n->config_size);
+    NetClientState *nc = qemu_get_queue(n->nic);
+    ret = vhost_net_get_config(get_vhost_net(nc->peer),  (uint8_t *)&netcfg,
+                             n->config_size);
+   if (ret != -1) {
+        memcpy(config, &netcfg, n->config_size);
+    }
 }
 
 static void virtio_net_set_config(VirtIODevice *vdev, const uint8_t *config)
 {
     VirtIONet *n = VIRTIO_NET(vdev);
+    NetClientState *nc = qemu_get_queue(n->nic);
     struct virtio_net_config netcfg = {};
-
     memcpy(&netcfg, config, n->config_size);
 
     if (!virtio_vdev_has_feature(vdev, VIRTIO_NET_F_CTRL_MAC_ADDR) &&
@@ -154,6 +163,10 @@ static void virtio_net_set_config(VirtIODevice *vdev, const uint8_t *config)
         memcpy(n->mac, netcfg.mac, ETH_ALEN);
         qemu_format_nic_info_str(qemu_get_queue(n->nic), n->mac);
     }
+    vhost_net_set_config(get_vhost_net(nc->peer), (uint8_t *)&netcfg,
+                               0, n->config_size,
+                               VHOST_SET_CONFIG_TYPE_MASTER);
+
 }
 
 static bool virtio_net_started(VirtIONet *n, uint8_t status)
@@ -2958,7 +2971,6 @@ static void virtio_net_device_realize(DeviceState *dev, Error **errp)
     } else if (n->net_conf.speed >= 0) {
         n->host_features |= (1ULL << VIRTIO_NET_F_SPEED_DUPLEX);
     }
-
     if (n->failover) {
         n->primary_listener.should_be_hidden =
             virtio_net_primary_should_be_hidden;

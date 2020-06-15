@@ -115,6 +115,16 @@ uint64_t vhost_net_get_features(struct vhost_net *net, uint64_t features)
     return vhost_get_features(&net->dev, vhost_net_get_feature_bits(net),
             features);
 }
+int vhost_net_get_config(struct vhost_net *net,  uint8_t *config,
+                         uint32_t config_len)
+{
+    return vhost_dev_get_config(&net->dev, config, config_len);
+}
+int vhost_net_set_config(struct vhost_net *net, const uint8_t *data,
+                         uint32_t offset, uint32_t size, uint32_t flags)
+{
+    return vhost_dev_set_config(&net->dev, data, offset, size, flags);
+}
 int vhost_net_get_device_id(struct vhost_net *net, uint32_t * device_id)
 {
     return vhost_dev_get_device_id(&net->dev, device_id);

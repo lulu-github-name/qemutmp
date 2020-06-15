@@ -2903,7 +2903,7 @@ SRST
     hubport to another netdev with ID nd by using the ``netdev=nd``
     option.
 
-``-netdev vhost-vdpa,vhostdev=/path/to/dev ``
+``-netdev vhost-vdpa,vhostdev=/path/to/dev``
     Establish a vhost-vdpa netdev.
 
     vDPA device is a device that uses a datapath which complies with

@@ -132,11 +132,10 @@ struct vhost_vdpa_op {
         struct vhost_memory memory;
     } payload;
 };
-#define VHOST_VDPA_MAX_CONFIG_SIZE 256
 struct vhost_vdpa_config {
         __u32 off;
         __u32 len;
-        __u8 buf[VHOST_VDPA_MAX_CONFIG_SIZE];
+        __u8 buf[0];
 };
 
 /* VHOST_VDPA specific defines */
