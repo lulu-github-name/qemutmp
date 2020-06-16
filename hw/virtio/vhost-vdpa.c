@@ -300,7 +300,10 @@ static int vhost_vdpa_set_mem_table(struct vhost_dev *dev,
 static int vhost_vdpa_set_features(struct vhost_dev *dev,
                                    uint64_t features)
 {
-    int ret = vhost_vdpa_call(dev, VHOST_SET_FEATURES, &features);
+    int ret;
+    /*hard code here, need to check*/
+    features |= (1ULL << VIRTIO_F_IOMMU_PLATFORM);
+    ret = vhost_vdpa_call(dev, VHOST_SET_FEATURES, &features);
     uint8_t status = 0;
 
     if (ret) {
