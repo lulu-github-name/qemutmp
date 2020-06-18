@@ -1758,13 +1758,14 @@ int vhost_net_set_backend(struct vhost_dev *hdev,
 
 int vhost_set_start(struct vhost_dev *hdev, bool started)
 {
-    if (started == true) {
+
+    if (hdev->vhost_ops->vhost_dev_start) {
+        hdev->vhost_ops->vhost_dev_start(hdev, started);
+    }
+        if (started == true) {
         if (hdev->vhost_ops->vhost_set_vring_ready) {
             hdev->vhost_ops->vhost_set_vring_ready(hdev);
         }
-    }
-    if (hdev->vhost_ops->vhost_dev_start) {
-        hdev->vhost_ops->vhost_dev_start(hdev, started);
     }
     return 0;
 }
