@@ -89,6 +89,8 @@ static void vhost_vdpa_listener_begin(MemoryListener *listener)
     msg.type = v->msg_type;
     msg.iotlb.type = VHOST_IOTLB_BATCH_BEGIN;
 
+    fprintf(stderr, "begin batch!\n");
+
     if (write(fd, &msg, sizeof(msg)) != sizeof(msg)) {
         error_report("failed to write, fd=%d, errno=%d (%s)",
             fd, errno, strerror(errno));
@@ -103,6 +105,8 @@ static void vhost_vdpa_listener_commit(MemoryListener *listener)
 
     msg.type = v->msg_type;
     msg.iotlb.type = VHOST_IOTLB_BATCH_END;
+
+    fprintf(stderr, "end batch!\n");
 
     if (write(fd, &msg, sizeof(msg)) != sizeof(msg)) {
         error_report("failed to write, fd=%d, errno=%d (%s)",
@@ -343,6 +347,7 @@ static int vhost_vdpa_set_vring_ready(struct vhost_dev *dev)
             .index = dev->vq_index + i,
             .num = 1,
         };
+        fprintf(stderr, "set vq %d ready\n", state.index);
         vhost_vdpa_call(dev, VHOST_VDPA_SET_VRING_ENABLE, &state);
     }
     return 0;
@@ -397,11 +402,13 @@ static int vhost_vdpa_set_start(struct vhost_dev *dev, bool started)
 
         vhost_vdpa_set_vring_ready(dev);
 
+        fprintf(stderr, "set driver ok!\n");
         vhost_vdpa_add_status(dev, VIRTIO_CONFIG_S_DRIVER_OK);
         vhost_vdpa_call(dev, VHOST_VDPA_GET_STATUS, &status);
 
         return !(status & VIRTIO_CONFIG_S_DRIVER_OK);
     } else {
+        fprintf(stderr, "clear driver ok!\n");
         vhost_vdpa_reset_device(dev);
         vhost_vdpa_add_status(dev, VIRTIO_CONFIG_S_ACKNOWLEDGE |
                                    VIRTIO_CONFIG_S_DRIVER);
