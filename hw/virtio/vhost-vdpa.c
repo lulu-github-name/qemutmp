@@ -394,6 +394,9 @@ static int vhost_vdpa_set_start(struct vhost_dev *dev, bool started)
         uint8_t status = 0;
 
         memory_listener_register(&v->listener, &address_space_memory);
+
+        vhost_vdpa_set_vring_ready(dev);
+
         vhost_vdpa_add_status(dev, VIRTIO_CONFIG_S_DRIVER_OK);
         vhost_vdpa_call(dev, VHOST_VDPA_GET_STATUS, &status);
 

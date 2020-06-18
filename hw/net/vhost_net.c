@@ -363,10 +363,6 @@ int vhost_net_start(VirtIODevice *dev, NetClientState *ncs,
             goto err_start;
         }
 
-        if (virtio_queue_enabled(dev, i)) {
-            vhost_set_vring_ready(peer);
-        }
-
         if (peer->vring_enable) {
             /* restore vring enable state */
             r = vhost_set_vring_enable(peer, peer->vring_enable);
