@@ -143,10 +143,14 @@ static void virtio_net_get_config(VirtIODevice *vdev, uint8_t *config)
     netcfg.duplex = n->net_conf.duplex;
     memcpy(config, &netcfg, n->config_size);
     NetClientState *nc = qemu_get_queue(n->nic);
-    ret = vhost_net_get_config(get_vhost_net(nc->peer),  (uint8_t *)&netcfg,
+
+    if (nc->peer->info->type == NET_CLIENT_DRIVER_VHOST_VDPA) {
+
+       ret = vhost_net_get_config(get_vhost_net(nc->peer),  (uint8_t *)&netcfg,
                              n->config_size);
-   if (ret != -1) {
-        memcpy(config, &netcfg, n->config_size);
+       if (ret != -1) {
+            memcpy(config, &netcfg, n->config_size);
+        }
     }
 }
 
@@ -163,10 +167,12 @@ static void virtio_net_set_config(VirtIODevice *vdev, const uint8_t *config)
         memcpy(n->mac, netcfg.mac, ETH_ALEN);
         qemu_format_nic_info_str(qemu_get_queue(n->nic), n->mac);
     }
-    vhost_net_set_config(get_vhost_net(nc->peer), (uint8_t *)&netcfg,
+    if (nc->peer->info->type == NET_CLIENT_DRIVER_VHOST_VDPA) {
+
+      vhost_net_set_config(get_vhost_net(nc->peer), (uint8_t *)&netcfg,
                                0, n->config_size,
                                VHOST_SET_CONFIG_TYPE_MASTER);
-
+      }
 }
 
 static bool virtio_net_started(VirtIONet *n, uint8_t status)
