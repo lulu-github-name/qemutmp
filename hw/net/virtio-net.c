@@ -44,6 +44,8 @@
 #include "hw/pci/pci.h"
 #include "net_rx_pkt.h"
 #include "hw/virtio/vhost.h"
+#include "net/vhost-vdpa.h"
+
 
 #define VIRTIO_NET_VM_VERSION    11
 
@@ -125,13 +127,14 @@ static void virtio_net_get_config(VirtIODevice *vdev, uint8_t *config)
 {
     VirtIONet *n = VIRTIO_NET(vdev);
     struct virtio_net_config netcfg;
-
+    static const MACAddr zero = { .a = { 0,0,0,0,0,0 } };
     int ret = 0;
     memset(&netcfg, 0 , sizeof(struct virtio_net_config));
     virtio_stw_p(vdev, &netcfg.status, n->status);
     virtio_stw_p(vdev, &netcfg.max_virtqueue_pairs, n->max_queues);
     virtio_stw_p(vdev, &netcfg.mtu, n->net_conf.mtu);
-    memcpy(netcfg.mac, n->mac, ETH_ALEN);
+    memcpy(&netcfg.mac, n->mac, ETH_ALEN);
+
     virtio_stl_p(vdev, &netcfg.speed, n->net_conf.speed);
     netcfg.duplex = n->net_conf.duplex;
     netcfg.rss_max_key_size = VIRTIO_NET_RSS_MAX_KEY_SIZE;
@@ -146,9 +149,16 @@ static void virtio_net_get_config(VirtIODevice *vdev, uint8_t *config)
     if (nc->peer->info->type == NET_CLIENT_DRIVER_VHOST_VDPA) {
         ret = vhost_net_get_config(get_vhost_net(nc->peer), (uint8_t *)&netcfg,
                              n->config_size);
-    if (ret != -1) {
-        memcpy(config, &netcfg, n->config_size);
-    }
+       if (ret != -1) {
+             if (memcmp(&netcfg.mac, &zero, sizeof(zero)) != 0) {
+                  memcpy(config, &netcfg, n->config_size);
+             } else {
+                 error_report("Get an all zero mac address from hardware,");
+                 error_report("will use %.2x:%.2x:%.2x:%.2x:%.2x:%.2x instead",
+                           n->mac[0], n->mac[1], n->mac[2],
+                           n->mac[3], n->mac[4], n->mac[5]);
+             }
+        }
     }
 }
 
@@ -3392,6 +3402,13 @@ static void virtio_net_device_realize(DeviceState *dev, Error **errp)
     nc = qemu_get_queue(n->nic);
     nc->rxfilter_notify_enabled = 1;
 
+    if (nc->peer->info->type == NET_CLIENT_DRIVER_VHOST_VDPA) {
+        if (virtio_has_feature(vhost_vdpa_get_acked_features(nc->peer), VIRTIO_NET_F_MAC)) {
+            struct virtio_net_config netcfg = {};
+            memcpy(&netcfg.mac, &n->nic_conf.macaddr, ETH_ALEN);
+            virtio_net_set_config(vdev, (uint8_t *)&netcfg);
+        }
+     }
     QTAILQ_INIT(&n->rsc_chains);
     n->qdev = dev;
 
