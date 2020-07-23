@@ -3403,7 +3403,7 @@ static void virtio_net_device_realize(DeviceState *dev, Error **errp)
     nc->rxfilter_notify_enabled = 1;
 
     if (nc->peer->info->type == NET_CLIENT_DRIVER_VHOST_VDPA) {
-        if (virtio_has_feature(vhost_vdpa_get_acked_features(nc->peer), VIRTIO_NET_F_MAC)) {
+        if (!(virtio_has_feature(vhost_vdpa_get_acked_features(nc->peer), VIRTIO_NET_F_MAC))) {
             struct virtio_net_config netcfg = {};
             memcpy(&netcfg.mac, &n->nic_conf.macaddr, ETH_ALEN);
             virtio_net_set_config(vdev, (uint8_t *)&netcfg);
