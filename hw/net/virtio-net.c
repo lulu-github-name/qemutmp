@@ -44,6 +44,8 @@
 #include "hw/pci/pci.h"
 #include "net_rx_pkt.h"
 #include "hw/virtio/vhost.h"
+#include "net/vhost-vdpa.h"
+
 
 #define VIRTIO_NET_VM_VERSION    11
 
@@ -126,6 +128,7 @@ static void virtio_net_get_config(VirtIODevice *vdev, uint8_t *config)
     VirtIONet *n = VIRTIO_NET(vdev);
     struct virtio_net_config netcfg;
     NetClientState *nc = qemu_get_queue(n->nic);
+    static const MACAddr zero = { .a = { 0, 0, 0, 0, 0, 0 } };
 
     int ret = 0;
     memset(&netcfg, 0 , sizeof(struct virtio_net_config));
@@ -151,7 +154,11 @@ static void virtio_net_get_config(VirtIODevice *vdev, uint8_t *config)
         ret = vhost_net_get_config(get_vhost_net(nc->peer), (uint8_t *)&netcfg,
                                    n->config_size);
         if (ret != -1) {
-            memcpy(config, &netcfg, n->config_size);
+            if (memcmp(&netcfg.mac, &zero, sizeof(zero)) != 0) {
+                memcpy(config, &netcfg, n->config_size);
+        } else {
+                error_report("Get an all zero mac address from hardware");
+            }
         }
     }
 }
@@ -3400,6 +3407,11 @@ static void virtio_net_device_realize(DeviceState *dev, Error **errp)
     nc = qemu_get_queue(n->nic);
     nc->rxfilter_notify_enabled = 1;
 
+   if (nc->peer && nc->peer->info->type == NET_CLIENT_DRIVER_VHOST_VDPA) {
+        struct virtio_net_config netcfg = {};
+        memcpy(&netcfg.mac, &n->nic_conf.macaddr, ETH_ALEN);
+        virtio_net_set_config(vdev, (uint8_t *)&netcfg);
+    }
     QTAILQ_INIT(&n->rsc_chains);
     n->qdev = dev;
 
