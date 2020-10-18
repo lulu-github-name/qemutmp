@@ -467,6 +467,90 @@ static int vhost_vdpa_get_config(struct vhost_dev *dev, uint8_t *config,
     }
     return ret;
  }
+/* Converts QEMU virtual address to Vhost virtual address. */
+
+
+char *buffer;
+char rarp[60];
+#define BUFFER_ADDR 0
+#define BUFFER_OFFSET (4 * 4096)
+#define BUFFER_SIZE (BUFFER_OFFSET * 2)
+#define AVAIL_ADDR 4096 /* * idx */
+#define DESC_ADDR 8192  /* * idx */
+#define USED_ADDR 12288 /* * idx */
+#define VRING_NUM 256
+
+static void vhost_vq_setup(struct vhost_dev *dev, int idx, uint64_t buffer )
+{
+        struct vhost_vring_state state = { .index = idx };
+        struct vhost_vring_file file = { .index = idx };
+       struct vhost_virtqueue *vring = &dev->vqs[idx];
+        struct vhost_vdpa *v = dev->opaque;
+        int fd = v->device_fd;
+        uint64_t offset;
+        struct vhost_vring_addr addr = {
+                .index = idx,
+                .desc_user_addr = BUFFER_OFFSET * idx + DESC_ADDR,
+                .avail_user_addr = BUFFER_OFFSET * idx + AVAIL_ADDR,
+                .used_user_addr = BUFFER_OFFSET * idx + USED_ADDR,
+        };
+        int kick = eventfd(0, EFD_NONBLOCK);
+        int call = eventfd(0, EFD_NONBLOCK);
+        int r;
+
+        printf( "buffer %lx off %x idx %x\n",
+                buffer, BUFFER_OFFSET, idx);
+        printf( "desc %lx avail %lx used %lx\n",
+                addr.desc_user_addr,
+                addr.avail_user_addr,
+                addr.used_user_addr);
+      offset = buffer + BUFFER_OFFSET * idx;
+        vring->desc =  (void *)(offset + DESC_ADDR);
+        vring->used =  (void *)(offset + USED_ADDR);
+        vring->avail = (void *)(offset + AVAIL_ADDR);
+
+
+        state.num = VRING_NUM;
+        r = ioctl(fd, VHOST_SET_VRING_NUM, &state);
+        assert(r >= 0);
+
+        state.num = 0;
+        r = ioctl(fd, VHOST_SET_VRING_BASE, &state);
+        assert(r >= 0);
+
+        r = ioctl(fd, VHOST_SET_VRING_ADDR, &addr);
+        assert(r >= 0);
+        file.fd = kick;
+        r = ioctl(fd, VHOST_SET_VRING_KICK, &file);
+        assert(r >= 0);
+        file.fd = call;
+        r = ioctl(fd, VHOST_SET_VRING_CALL, &file);
+        assert(r >= 0);
+        state.num = 1;
+        r = ioctl(fd, VHOST_VDPA_SET_VRING_ENABLE, &state);
+        assert(r >= 0);
+
+        //vring->fds[0].fd = vring->call;
+        //vring->fds[0].events = POLLIN;
+
+	fprintf(stderr, "vring %d  avail %p desc %p used %p\n",
+                idx, vring->avail, vring->desc, vring->used);
+}
+
+
+ struct vhost_msg_v2 msg;
+static void   vhost_vdpa_ctlq_mem_init( struct vhost_msg_v2 *msg, struct vhost_dev *dev)
+{
+ 
+    void* uaddr;
+   posix_memalign(&uaddr, 4096, 1024);
+    msg->type = VHOST_IOTLB_MSG_ASID;
+    msg->asid = 1;
+    msg->iotlb.iova = (uint64_t)uaddr;
+    msg->iotlb.size = 1024;
+    msg->iotlb.uaddr = (uint64_t)uaddr;
+
+}
 
 static int vhost_vdpa_dev_start(struct vhost_dev *dev, bool started)
 {
@@ -478,9 +562,27 @@ static int vhost_vdpa_dev_start(struct vhost_dev *dev, bool started)
         vhost_vdpa_set_vring_ready(dev);
         vhost_vdpa_add_status(dev, VIRTIO_CONFIG_S_DRIVER_OK);
         vhost_vdpa_call(dev, VHOST_VDPA_GET_STATUS, &status);
+        #if 1
+       vhost_vdpa_ctlq_mem_init( &msg, dev);
+      msg.iotlb.perm =  VHOST_ACCESS_RW;
+      msg.iotlb.type = VHOST_IOTLB_UPDATE;    
+    if (write(fd, &msg, sizeof(msg)) != sizeof(msg)) {
+        error_report("failed to write, fd=%d, errno=%d (%s)",
+            fd, errno, strerror(errno));
+        }
+        vhost_vq_setup(dev,3,(uint64_t)msg.iotlb.uaddr);
+    #endif
 
         return !(status & VIRTIO_CONFIG_S_DRIVER_OK);
     } else {
+	    msg.iotlb.type = VHOST_IOTLB_INVALIDATE;
+    if (write(fd, &msg, sizeof(msg)) != sizeof(msg)) {
+        error_report("failed to write, fd=%d, errno=%d (%s)",
+            fd, errno, strerror(errno));
+        return -EIO ;
+    }
+
+
         vhost_vdpa_reset_device(dev);
         vhost_vdpa_add_status(dev, VIRTIO_CONFIG_S_ACKNOWLEDGE |
                                    VIRTIO_CONFIG_S_DRIVER);
