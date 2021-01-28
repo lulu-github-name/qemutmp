@@ -489,8 +489,8 @@ static void vhost_vdpa_config_notify_start(struct vhost_dev *dev,
         event_notifier_set(&vdev->config_notifier);
     }
     return;
-
 }
+
 static int vhost_vdpa_dev_start(struct vhost_dev *dev, bool started)
 {
     struct vhost_vdpa *v = dev->opaque;
