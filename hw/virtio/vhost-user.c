@@ -79,6 +79,7 @@ enum VhostUserProtocolFeature {
     VHOST_USER_PROTOCOL_F_RESET_DEVICE = 13,
     /* Feature 14 reserved for VHOST_USER_PROTOCOL_F_INBAND_NOTIFICATIONS. */
     VHOST_USER_PROTOCOL_F_CONFIGURE_MEM_SLOTS = 15,
+    VHOST_USER_PROTOCOL_F_STATUS = 16,
     VHOST_USER_PROTOCOL_F_MAX
 };
 
@@ -124,6 +125,8 @@ typedef enum VhostUserRequest {
     VHOST_USER_GET_MAX_MEM_SLOTS = 36,
     VHOST_USER_ADD_MEM_REG = 37,
     VHOST_USER_REM_MEM_REG = 38,
+    VHOST_USER_SET_STATUS = 39,
+    VHOST_USER_GET_STATUS = 40,
     VHOST_USER_MAX
 } VhostUserRequest;
 
@@ -2324,6 +2327,73 @@ static int vhost_user_set_inflight_fd(struct vhost_dev *dev,
     return 0;
 }
 
+static int vhost_user_get_status(struct vhost_dev *dev, uint8_t *status)
+{
+    VhostUserMsg msg = {
+        .hdr.request = VHOST_USER_GET_STATUS,
+        .hdr.flags = VHOST_USER_VERSION,
+        .hdr.size = sizeof(msg.payload.u64),
+        .payload.u64 = (uint64_t)status,
+    };
+
+    if (vhost_user_write(dev, &msg, NULL, 0) < 0) {
+        return -1;
+    }
+
+    if (vhost_user_read(dev, &msg) < 0) {
+        return -1;
+    }
+
+    *status = (uint8_t)msg.payload.u64;
+    return 0;
+}
+
+static int vhost_user_set_status(struct vhost_dev *dev, uint8_t status)
+{
+    int ret;
+    VhostUserMsg msg = {
+        .hdr.request = VHOST_USER_SET_STATUS,
+        .hdr.flags = VHOST_USER_VERSION,
+        .hdr.size = sizeof(msg.payload.u64),
+        .payload.u64 = status,
+    };
+
+    ret = vhost_user_write(dev, &msg, NULL, 0);
+    if (ret < 0) {
+        error_report("Failed to send get status request");
+        return -1;
+    }
+
+    return 0;
+}
+
+static int vhost_user_set_start(struct vhost_dev *dev, bool state)
+{
+    uint8_t status = 0;
+    /*
+     * If features have not been negotiated, we don't know if the backend
+     * supports protocol features
+     */
+
+    if (!virtio_has_feature(dev->protocol_features,
+                VHOST_USER_PROTOCOL_F_STATUS)) {
+        return -1;
+    }
+    if (vhost_user_get_status(dev, &status) < 0) {
+        return -1;
+    }
+    if (state) {
+        status |= VIRTIO_CONFIG_S_DRIVER_OK;
+    } else {
+        status |= (VIRTIO_CONFIG_S_ACKNOWLEDGE | VIRTIO_CONFIG_S_DRIVER);
+    }
+    if (vhost_user_set_status(dev, status) < 0) {
+        return -1;
+    }
+
+    return 0;
+}
+
 bool vhost_user_init(VhostUserState *user, CharBackend *chr, Error **errp)
 {
     if (user->chr) {
@@ -2386,4 +2456,5 @@ const VhostOps user_ops = {
         .vhost_backend_mem_section_filter = vhost_user_mem_section_filter,
         .vhost_get_inflight_fd = vhost_user_get_inflight_fd,
         .vhost_set_inflight_fd = vhost_user_set_inflight_fd,
+        .vhost_dev_start = vhost_user_set_start,
 };
