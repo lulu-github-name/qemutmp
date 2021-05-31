@@ -3505,19 +3505,24 @@ static void virtio_queue_guest_notifier_read(EventNotifier *n)
     }
 }
 
-void virtio_queue_set_guest_notifier_fd_handler(VirtQueue *vq, bool assign,
-                                                bool with_irqfd)
+
+void virtio_set_notifier_fd_handler(VirtIODevice *vdev, int queue_no,
+                               bool assign, bool with_irqfd)
 {
+    EventNotifier *e ;
+    EventNotifierHandler *handler;
+    VirtQueue *vq = virtio_get_queue(vdev, queue_no);
+    e = &vq->guest_notifier;
+    handler = virtio_queue_guest_notifier_read;
     if (assign && !with_irqfd) {
-        event_notifier_set_handler(&vq->guest_notifier,
-                                   virtio_queue_guest_notifier_read);
+        event_notifier_set_handler(e, handler);
     } else {
-        event_notifier_set_handler(&vq->guest_notifier, NULL);
+        event_notifier_set_handler(e, NULL);
     }
     if (!assign) {
         /* Test and clear notifier before closing it,
          * in case poll callback didn't have time to run. */
-        virtio_queue_guest_notifier_read(&vq->guest_notifier);
+        handler(e);
     }
 }
 
