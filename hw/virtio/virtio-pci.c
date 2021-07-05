@@ -907,9 +907,7 @@ static int virtio_pci_vector_unmask(PCIDevice *dev, unsigned vector,
         }
         vq = virtio_vector_next_queue(vq);
     }
-    n = virtio_get_config_notifier(vdev);
-    ret = virtio_pci_one_vector_unmask(proxy, VIRTIO_CONFIG_IRQ_IDX,
-                        vector, msg, n);
+    ret = virtio_pci_one_vector_unmask(proxy, VIRTIO_CONFIG_IRQ_IDX, msg);
     if (ret < 0) {
         goto undo;
     }
@@ -945,8 +943,7 @@ static void virtio_pci_vector_mask(PCIDevice *dev, unsigned vector)
         }
         vq = virtio_vector_next_queue(vq);
     }
-    n = virtio_get_config_notifier(vdev);
-    virtio_pci_one_vector_mask(proxy, VIRTIO_CONFIG_IRQ_IDX, vector, n);
+    virtio_pci_one_vector_mask(proxy, VIRTIO_CONFIG_IRQ_IDX);
 }
 
 static void virtio_pci_vector_poll(PCIDevice *dev,
