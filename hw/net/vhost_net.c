@@ -310,6 +310,31 @@ static void vhost_net_stop_one(struct vhost_net *net,
     vhost_dev_disable_notifiers(&net->dev, dev);
 }
 
+static void vhost_net_stop_config_intr(struct vhost_net *net)
+{
+    struct vhost_dev *dev = &net->dev;
+    if (dev->features & (0x1ULL << VIRTIO_NET_F_STATUS)) {
+        if (dev->vhost_ops->vhost_set_config_call) {
+            int fd = -1;
+            dev->vhost_ops->vhost_set_config_call(dev, fd);
+        }
+    }
+}
+
+static void vhost_net_start_config_intr(struct vhost_net *net)
+{
+    struct vhost_dev *dev = &net->dev;
+    if (!(dev->features & (0x1ULL << VIRTIO_NET_F_STATUS))) {
+        return;
+    }
+    if (dev->vhost_ops->vhost_set_config_call) {
+        int fd = event_notifier_get_fd(&dev->vdev->config_notifier);
+        int r = dev->vhost_ops->vhost_set_config_call(dev, fd);
+        if (!r) {
+            event_notifier_set(&dev->vdev->config_notifier);
+        }
+    }
+}
 int vhost_net_start(VirtIODevice *dev, NetClientState *ncs,
                     int total_queues)
 {
@@ -364,6 +389,7 @@ int vhost_net_start(VirtIODevice *dev, NetClientState *ncs,
         }
     }
 
+    vhost_net_start_config_intr(get_vhost_net(ncs[0].peer));
     return 0;
 
 err_start:
@@ -397,6 +423,7 @@ void vhost_net_stop(VirtIODevice *dev, NetClientState *ncs,
         fprintf(stderr, "vhost guest notifier cleanup failed: %d\n", r);
         fflush(stderr);
     }
+    vhost_net_stop_config_intr(get_vhost_net(ncs[0].peer));
     assert(r >= 0);
 }
 
@@ -426,6 +453,15 @@ void vhost_net_virtqueue_mask(VHostNetState *net, VirtIODevice *dev,
     vhost_virtqueue_mask(&net->dev, dev, idx, mask);
 }
 
+bool vhost_net_config_pending(VHostNetState *net, int idx)
+{
+    return vhost_config_pending(&net->dev, idx);
+}
+void vhost_net_config_mask(VHostNetState *net, VirtIODevice *dev,
+                              bool mask)
+{
+    vhost_config_mask(&net->dev, dev, mask);
+}
 VHostNetState *get_vhost_net(NetClientState *nc)
 {
     VHostNetState *vhost_net = 0;
