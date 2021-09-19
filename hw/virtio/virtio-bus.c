@@ -203,7 +203,7 @@ void virtio_bus_release_ioeventfd(VirtioBusState *bus)
     if (--bus->ioeventfd_grabbed == 0 && bus->ioeventfd_started) {
         /* Force virtio_bus_start_ioeventfd to act.  */
         bus->ioeventfd_started = false;
-        virtio_bus_start_ioeventfd(bus);
+        virtio_bus_stop_ioeventfd(bus);
     }
 }
 
