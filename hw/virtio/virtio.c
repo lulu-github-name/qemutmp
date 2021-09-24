@@ -144,6 +144,34 @@ static void virtio_free_region_cache(VRingMemoryRegionCaches *caches)
     address_space_cache_destroy(&caches->used);
     g_free(caches);
 }
+#include <execinfo.h>
+#include <stdio.h>
+#include <stdlib.h>
+
+
+void print_trace (void)
+{
+    void    * array[10];
+    size_t  size;
+    char    ** strings;
+    size_t  i;
+ 
+    size = backtrace(array, 10);
+    strings = backtrace_symbols (array, size);
+    if (NULL == strings)
+    {
+        perror("backtrace_symbols");
+        exit(EXIT_FAILURE);
+    }
+ 
+    printf ("Obtained %zd stack frames.\n", size);
+ 
+    for (i = 0; i < size; i++)
+        printf ("%s\n", strings[i]);
+ 
+    free (strings);
+    strings = NULL;
+}
 
 static void virtio_virtqueue_reset_region_cache(struct VirtQueue *vq)
 {
