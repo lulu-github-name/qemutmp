@@ -251,5 +251,6 @@ void virtio_pci_types_register(const VirtioPCIDeviceTypeInfo *t);
  * @fixed_queues.
  */
 unsigned virtio_pci_optimal_num_queues(unsigned fixed_queues);
-
+EventNotifier *virtio_pci_get_notifier_by_queue(VirtIODevice *vdev,
+                                                  unsigned int queue_no);
 #endif
