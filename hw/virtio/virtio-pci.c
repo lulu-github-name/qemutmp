@@ -754,7 +754,7 @@ static int kvm_virtio_pci_vector_use_one(VirtIOPCIProxy *proxy, int queue_no)
     VirtioDeviceClass *k = VIRTIO_DEVICE_GET_CLASS(vdev);
 
     ret = virtio_pci_get_notifier(proxy, queue_no, &n, &vector);
-    if (ret < 0) {
+if (ret < 0) {
         return ret;
     }
     if (vector >= msix_nr_vectors_allocated(dev)) {
