@@ -844,6 +844,29 @@ static char *virtio_mmio_bus_get_dev_path(DeviceState *dev)
     g_free(proxy_path);
     return path;
 }
+static void virtio_mmio_vmstate_change(DeviceState *d, bool running)
+{
+    VirtIOMMIOProxy *proxy = VIRTIO_MMIO(d);
+   // VirtIODevice *vdev = virtio_bus_get_device(&proxy->bus);
+
+    if (running) {
+        /* Old QEMU versions did not set bus master enable on status write.
+         * Detect DRIVER set and enable it.
+         */
+#if 0
+        if ((proxy->flags & VIRTIO_PCI_FLAG_BUS_MASTER_BUG_MIGRATION) &&
+            (vdev->status & VIRTIO_CONFIG_S_DRIVER) &&
+            !(proxy->pci_dev.config[PCI_COMMAND] & PCI_COMMAND_MASTER)) {
+            pci_default_write_config(&proxy->pci_dev, PCI_COMMAND,
+                                     proxy->pci_dev.config[PCI_COMMAND] |
+                                     PCI_COMMAND_MASTER, 1);
+        }
+#endif
+        virtio_mmio_start_ioeventfd(proxy);
+    } else {
+        virtio_mmio_stop_ioeventfd(proxy);
+    }
+}
 
 static void virtio_mmio_bus_class_init(ObjectClass *klass, void *data)
 {
@@ -860,6 +883,7 @@ static void virtio_mmio_bus_class_init(ObjectClass *klass, void *data)
     k->ioeventfd_enabled = virtio_mmio_ioeventfd_enabled;
     k->ioeventfd_assign = virtio_mmio_ioeventfd_assign;
     k->pre_plugged = virtio_mmio_pre_plugged;
+    k->vmstate_change = virtio_mmio_vmstate_change;
     k->has_variable_vring_alignment = true;
     bus_class->max_dev = 1;
     bus_class->get_dev_path = virtio_mmio_bus_get_dev_path;
